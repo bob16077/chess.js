@@ -3,7 +3,8 @@
 [![npm](https://img.shields.io/npm/v/chessjs-plus?color=blue)](https://www.npmjs.com/package/chessjs-plus)
 [![npm](https://img.shields.io/npm/dm/chessjs-plus)](https://www.npmjs.com/package/chessjs-plus)
 
-NOTE: This is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
+NOTE: This module is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
+[jhlywa](https://github.com/jhlywa), and is maintained by
 [bob16077](https://github.com/bob16077). It has largely the same functionality
 as the original module, but this version includes more comments, examples, and
 useful functions.
