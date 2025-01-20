@@ -1,22 +1,26 @@
-# chess.js
+# chessjs-plus
 
-[![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/jhlywa/chess.js/node.js.yml)](https://github.com/jhlywa/chess.js/actions)
-[![npm](https://img.shields.io/npm/v/chess.js?color=blue)](https://www.npmjs.com/package/chess.js)
-[![npm](https://img.shields.io/npm/dm/chess.js)](https://www.npmjs.com/package/chess.js)
+[![npm](https://img.shields.io/npm/v/chessjs-plus?color=blue)](https://www.npmjs.com/package/chessjs-plus)
+[![npm](https://img.shields.io/npm/dm/chessjs-plus)](https://www.npmjs.com/package/chessjs-plus)
 
-chess.js is a TypeScript chess library used for chess move
+NOTE: This is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
+[bob16077](https://github.com/bob16077). It has largely the same functionality
+as the original module, but this version includes more comments, examples, and
+useful functions.
+
+chessjs-plus is a TypeScript chess library used for chess move
 generation/validation, piece placement/movement, and check/checkmate/stalemate
 detection - basically everything but the AI.
 
-chess.js has been extensively tested in node.js and most modern browsers.
+chessjs-plus has been extensively tested in node.js and most modern browsers.
 
 ## Installation
 
-Run the following command to install the most recent version of chess.js from
-NPM:
+Run the following command to install the most recent version of chessjs-plus
+from NPM:
 
 ```sh
-npm install chess.js
+npm install chessjs-plus
 ```
 
 ## Importing
@@ -24,21 +28,21 @@ npm install chess.js
 ### Import (as ESM)
 
 ```js
-import { Chess } from 'chess.js'
+import { Chess } from 'chessjs-plus'
 ```
 
 ECMAScript modules (ESM) can be directly imported in a browser:
 
 ```html
 <script type="module">
-  import { Chess } from 'chess.js'
+  import { Chess } from 'chessjs-plus'
 </script>
 ```
 
 ### Import (as CommonJS)
 
 ```js
-const { Chess } = require('chess.js')
+const { Chess } = require('chessjs-plus')
 ```
 
 ## Example Code
@@ -46,7 +50,7 @@ const { Chess } = require('chess.js')
 The code below plays a random game of chess:
 
 ```js
-import { Chess } from 'chess.js'
+import { Chess } from 'chessjs-plus'
 
 const chess = new Chess()
 
@@ -60,9 +64,9 @@ console.log(chess.pgn())
 
 ## User Interface
 
-By design, chess.js is a headless library and does not include user interface
-elements. Many developers have successfully integrated chess.js with the
-[chessboard.js](http://chessboardjs.com) library. See
+By design, chessjs-plus is a headless library and does not include user
+interface elements. Many developers have successfully integrated chessjs-plus
+with the [chessboard.js](http://chessboardjs.com) library. See
 [chessboard.js - Random vs Random](http://chessboardjs.com/examples#5002) for an
 example.
 
@@ -110,7 +114,7 @@ configuration in
 Throws an exception if an invalid FEN string is provided.
 
 ```ts
-import { Chess } from 'chess.js'
+import { Chess } from 'chessjs-plus'
 
 // an empty constructor defaults the starting position
 let chess = new Chess()
@@ -551,7 +555,7 @@ themselves be escaped (see `sloppyPgn` example below). Avoid using a
 `newlineChar` that may occur elsewhere in a PGN, such as `.` or `x`, as this
 will result in unexpected behavior.
 
-The `strict` flag is a boolean (default: `false`) that instructs chess.js to
+The `strict` flag is a boolean (default: `false`) that instructs chessjs-plus to
 only parse moves in Standard Algebraic Notation form. See `.move` documentation
 for more information about non-SAN notations.
 
@@ -980,7 +984,7 @@ This static function returns a validation object specifying validity or the
 errors found within the FEN string.
 
 ```ts
-import { validateFen } from 'chess.js'
+import { validateFen } from 'chessjs-plus'
 
 validateFen('2n1r3/p1k2pp1/B1p3b1/P7/5bP1/2N1B3/1P2KP2/2R5 b - - 4 25')
 // -> { ok: true }

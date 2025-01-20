@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright (c) 2025, Jeff Hlywa (jhlywa@gmail.com)
+ * Copyright (c) 2025, bob16077
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,7 +35,10 @@ export const ROOK = 'r'
 export const QUEEN = 'q'
 export const KING = 'k'
 
+/** The only two possible sides (colors) in classic Chess. */
 export type Color = 'w' | 'b'
+
+/** The six possible types of pieces in classic Chess. */
 export type PieceSymbol = 'p' | 'n' | 'b' | 'r' | 'q' | 'k'
 
 // prettier-ignore
@@ -49,12 +52,27 @@ export type Square =
     'a2' | 'b2' | 'c2' | 'd2' | 'e2' | 'f2' | 'g2' | 'h2' |
     'a1' | 'b1' | 'c1' | 'd1' | 'e1' | 'f1' | 'g1' | 'h1'
 
+/**
+ * The default position of the board, in Forsyth-Edwards Notation (FEN).
+ */
 export const DEFAULT_POSITION =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
+/**
+ * Type representing a chess piece, with color (side) and type.
+ */
 export type Piece = {
   color: Color
   type: PieceSymbol
+}
+
+/**
+ * Type representing a piece on a specific square, as opposed to 'Piece', which defines only the piece type and color.
+ */
+export type PieceOnSquare = {
+  square: Square
+  type: PieceSymbol
+  color: Color
 }
 
 type InternalMove = {
@@ -77,13 +95,59 @@ interface History {
   moveNumber: number
 }
 
+/**
+ * Represents a single Chess move, played by one side involving (usually) only one piece.
+ */
 export class Move {
+  /**
+   * The side/color that makes the move, to which the piece belongs
+   */
   color: Color
+
+  /**
+   * The Square the piece moves from. This is the square it's on before the move happens.
+   */
   from: Square
+
+  /**
+   * The Square the piece moves to. This is the square it's on after the move happens.
+   */
   to: Square
+
+  /**
+   * The type of piece that is moved
+   */
   piece: PieceSymbol
+
+  /**
+   * The type of piece captured by this move, if applicable
+   */
   captured?: PieceSymbol
+
+  /**
+   * The type of piece this move promotes to, if applicable
+   */
   promotion?: PieceSymbol
+
+  /**
+   * Standard Algebraic Notation of this move
+   */
+  san: string
+
+  /**
+   * Long Algebraic Notation of the move
+   */
+  lan: string
+
+  /**
+   * Position in FEN before the move
+   */
+  before: string
+
+  /**
+   * Position in FEN after the move
+   */
+  after: string
 
   /**
    * @deprecated This field is deprecated and will be removed in version 2.0.0.
@@ -92,11 +156,6 @@ export class Move {
    * `isBigPawn`
    */
   flags: string
-
-  san: string
-  lan: string
-  before: string
-  after: string
 
   constructor(chess: Chess, internal: InternalMove) {
     const { color, piece, from, to, flags, captured, promotion } = internal
@@ -142,26 +201,54 @@ export class Move {
     }
   }
 
+  /**
+   * Whether or not this move captures an opposing piece.
+   */
   isCapture() {
     return this.flags.indexOf(FLAGS['CAPTURE']) > -1
   }
 
+  /**
+   * Whether or not this move promotes a pawn to another piece.
+   */
   isPromotion() {
     return this.flags.indexOf(FLAGS['PROMOTION']) > -1
   }
 
+  /**
+   * Whether or not this move captures another pawn via En Passant.
+   */
   isEnPassant() {
     return this.flags.indexOf(FLAGS['EP_CAPTURE']) > -1
   }
 
+  /**
+   * Whether or not this move castles.
+   */
+  isCastle() {
+    return (
+      this.flags.indexOf(FLAGS['KSIDE_CASTLE']) > -1 ||
+      this.flags.indexOf(FLAGS['QSIDE_CASTLE']) > -1
+    )
+  }
+
+  /**
+   * Whether or not this move castles kingside.
+   */
   isKingsideCastle() {
     return this.flags.indexOf(FLAGS['KSIDE_CASTLE']) > -1
   }
 
+  /**
+   * Whether or not this move castles queenside.
+   */
   isQueensideCastle() {
     return this.flags.indexOf(FLAGS['QSIDE_CASTLE']) > -1
   }
 
+  /**
+   * Whether or not this move moves a pawn forward by 2 squares.
+   */
   isBigPawn() {
     return this.flags.indexOf(FLAGS['BIG_PAWN']) > -1
   }
@@ -611,6 +698,44 @@ function trimFen(fen: string): string {
   return fen.split(' ').slice(0, 4).join(' ')
 }
 
+/**
+ * Flip the side to move of the position, or set to a specific color
+ * @param {string} position The FEN of the position
+ * @param {color} color The color to set the position to, defaults to the opposite of the current side to move
+ * @returns The new FEN
+ */
+export function changePositionColor(
+  position: string,
+  color: Color,
+): string | null {
+  const matches = position.match(/(?<= )(?:w|b)(?= )/g)
+  if (!matches) return null
+
+  const prevColor = matches[0]
+  if (!color) color = prevColor == 'w' ? 'b' : 'w'
+
+  return position
+    .replace(/(?<= )(?:w|b)(?= )/g, color)
+    .replace(/ [a-h][1-8] /g, ' - ')
+}
+
+/**
+ * Get the row and column of a square (for index/coordinates in Chess.board() 2D array)
+ * @param {Square} square The square in square notation
+ * @returns The row and column of the square
+ */
+export function getRowCol(square: Square): { row: number; col: number } {
+  const file = 'abcdefg'.indexOf(square[0])
+  const rank = 7 - (Number(square[1]) - 1)
+
+  // Ensure the file and rank are valid (0 to 7)
+  if (file === -1 || rank < 0 || rank > 7) {
+    throw new Error(`Invalid square: ${square}`)
+  }
+
+  return { row: rank, col: file }
+}
+
 export class Chess {
   private _board = new Array<Piece>(128)
   private _turn: Color = WHITE
@@ -630,7 +755,10 @@ export class Chess {
     this.load(fen)
   }
 
-  clear({ preserveHeaders = false } = {}) {
+  /**
+   * Clears the board, removing all pieces.
+   */
+  clear({ preserveHeaders = false } = {}): void {
     this._board = new Array<Piece>(128)
     this._kings = { w: EMPTY, b: EMPTY }
     this._turn = WHITE
@@ -652,7 +780,16 @@ export class Chess {
     delete this._header['FEN']
   }
 
-  load(fen: string, { skipValidation = false, preserveHeaders = false } = {}) {
+  /**
+   * Loads a FEN string and updates the board position.
+   *
+   * @param fen The FEN string to load.
+   * @returns True if the FEN is valid and loaded successfully, otherwise false.
+   */
+  load(
+    fen: string,
+    { skipValidation = false, preserveHeaders = false } = {},
+  ): void {
     let tokens = fen.split(/\s+/)
 
     // append commonly omitted fen tokens
@@ -715,7 +852,12 @@ export class Chess {
     this._incPositionCount(fen)
   }
 
-  fen() {
+  /**
+   * Returns the current FEN string representing the board state.
+   *
+   * @returns The FEN string of the current position.
+   */
+  fen(): string {
     let empty = 0
     let fen = ''
 
@@ -834,14 +976,27 @@ export class Chess {
     }
   }
 
+  /**
+   * Resets the board to the default starting position.
+   */
   reset() {
     this.load(DEFAULT_POSITION)
   }
 
+  /**
+   * Returns the piece on the square, or undefined if the square is empty.
+   */
   get(square: Square): Piece | undefined {
     return this._board[Ox88[square]]
   }
 
+  /**
+   * Place a piece on the square where piece is an object with the form { type: ..., color: ... }.
+   *
+   * @param param0 Piece Data
+   * @param square
+   * @returns True if the piece was successfully placed, otherwise, the board remains unchanged and false is returned.
+   */
   put(
     { type, color }: { type: PieceSymbol; color: Color },
     square: Square,
@@ -895,6 +1050,9 @@ export class Chess {
     return true
   }
 
+  /**
+   * Remove and return the piece on square. Returns undefined if the square is already empty.
+   */
   remove(square: Square): Piece | undefined {
     const piece = this.get(square)
     delete this._board[Ox88[square]]
@@ -1061,6 +1219,10 @@ export class Chess {
     }
   }
 
+  /**
+   * Returns a list of squares that have pieces belonging to the side to move that can attack the given square.
+   * This function takes an optional parameter which can change which color the pieces should belong to.
+   */
   attackers(square: Square, attackedBy?: Color): Square[] {
     if (!attackedBy) {
       return this._attacked(this._turn, Ox88[square], true)
@@ -1074,26 +1236,54 @@ export class Chess {
     return square === -1 ? false : this._attacked(swapColor(color), square)
   }
 
+  /**
+   * Returns true if the square is attacked by any piece of the given color.
+   */
   isAttacked(square: Square, attackedBy: Color): boolean {
     return this._attacked(attackedBy, Ox88[square])
   }
 
+  /**
+   * Returns whether the game is in check.
+   *
+   * @returns True if the current player is in check, otherwise false.
+   */
   isCheck(): boolean {
     return this._isKingAttacked(this._turn)
   }
 
+  /**
+   * Returns whether the game is in check.
+   *
+   * @returns True if the current player is in check, otherwise false.
+   */
   inCheck(): boolean {
     return this.isCheck()
   }
 
+  /**
+   * Returns whether the game is in checkmate.
+   *
+   * @returns True if the current player is in checkmate, otherwise false.
+   */
   isCheckmate(): boolean {
     return this.isCheck() && this._moves().length === 0
   }
 
+  /**
+   * Returns whether the game is in stalemate.
+   *
+   * @returns True if the game is in stalemate, otherwise false.
+   */
   isStalemate(): boolean {
     return !this.isCheck() && this._moves().length === 0
   }
 
+  /**
+   * Returns whether insufficient material exists to continue the game.
+   *
+   * @returns True if the game cannot continue due to insufficient material, otherwise false.
+   */
   isInsufficientMaterial(): boolean {
     /*
      * k.b. vs k.b. (of opposite colors) with mate in 1:
@@ -1155,14 +1345,27 @@ export class Chess {
     return false
   }
 
+  /**
+   * Returns whether the game is in threefold repetition.
+   *
+   * @returns True if the current position has occurred three times, otherwise false.
+   */
   isThreefoldRepetition(): boolean {
     return this._getPositionCount(this.fen()) >= 3
   }
 
+  /**
+   * Returns true or false if the game is drawn by 50-move rule.
+   */
   isDrawByFiftyMoves(): boolean {
     return this._halfMoves >= 100 // 50 moves per side = 100 half moves
   }
 
+  /**
+   * Returns whether the game is in a draw.
+   *
+   * @returns True if the game is in a draw, otherwise false.
+   */
   isDraw(): boolean {
     return (
       this.isDrawByFiftyMoves() ||
@@ -1172,18 +1375,69 @@ export class Chess {
     )
   }
 
+  /**
+   * Returns whether the game is over.
+   *
+   * @returns True if the game is over, otherwise false.
+   */
   isGameOver(): boolean {
     return this.isCheckmate() || this.isStalemate() || this.isDraw()
   }
 
+  /**
+   * Returns a list of all possible legal moves from the current position.
+   *
+   * @param options Optional parameter to filter moves for a specific square.
+   * @returns An array of possible moves.
+   */
   moves(): string[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position for a specific square.
+   *
+   * @param options Optional parameter to filter moves for a specific square.
+   * @returns An array of possible moves.
+   */
   moves({ square }: { square: Square }): string[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position for a specific piece.
+   *
+   * @param options Optional parameter to filter moves for a specific piece.
+   * @returns An array of possible moves.
+   */
   moves({ piece }: { piece: PieceSymbol }): string[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({ square, piece }: { square: Square; piece: PieceSymbol }): string[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position with verbose output for a specific square.
+   *
+   * @param options Optional parameter to filter moves for a specific square.
+   * @returns An array of possible moves.
+   */
   moves({ verbose, square }: { verbose: true; square?: Square }): Move[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with non-verbose output for a specific square.
+   *
+   * @param options Optional parameter to filter moves for a specific square.
+   * @returns An array of possible moves.
+   */
   moves({ verbose, square }: { verbose: false; square?: Square }): string[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with optional verbose output for a specific square.
+   *
+   * @param options Optional parameter to filter moves for a specific square.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose,
     square,
@@ -1192,8 +1446,28 @@ export class Chess {
     square?: Square
   }): string[] | Move[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position with verbose output for a specific piece.
+   *
+   * @param options Optional parameter to filter moves for a specific piece.
+   * @returns An array of possible moves.
+   */
   moves({ verbose, piece }: { verbose: true; piece?: PieceSymbol }): Move[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with non-verbose output for a specific piece.
+   *
+   * @param options Optional parameter to filter moves for a specific piece.
+   * @returns An array of possible moves.
+   */
   moves({ verbose, piece }: { verbose: false; piece?: PieceSymbol }): string[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with optional verbose output for a specific piece.
+   *
+   * @param options Optional parameter to filter moves for a specific piece.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose,
     piece,
@@ -1202,6 +1476,12 @@ export class Chess {
     piece?: PieceSymbol
   }): string[] | Move[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position with verbose output for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose,
     square,
@@ -1211,6 +1491,13 @@ export class Chess {
     square?: Square
     piece?: PieceSymbol
   }): Move[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with non-verbose output for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose,
     square,
@@ -1220,6 +1507,13 @@ export class Chess {
     square?: Square
     piece?: PieceSymbol
   }): string[]
+
+  /**
+   * Returns a list of all possible legal moves from the current position with optional verbose output for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose,
     square,
@@ -1230,8 +1524,20 @@ export class Chess {
     piece?: PieceSymbol
   }): string[] | Move[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({ square, piece }: { square?: Square; piece?: PieceSymbol }): Move[]
 
+  /**
+   * Returns a list of all possible legal moves from the current position with optional verbose output for a specific square and piece.
+   *
+   * @param options Optional parameter to filter moves for a specific square and piece.
+   * @returns An array of possible moves.
+   */
   moves({
     verbose = false,
     square = undefined,
@@ -1442,6 +1748,12 @@ export class Chess {
     return legalMoves
   }
 
+  /**
+   * Makes a move on the board.
+   *
+   * @param move A string or move object representing the move.
+   * @returns An object with move details, or null if the move is invalid.
+   */
   move(
     move: string | { from: string; to: string; promotion?: string },
     { strict = false }: { strict?: boolean } = {},
@@ -1608,6 +1920,11 @@ export class Chess {
     this._turn = them
   }
 
+  /**
+   * Undoes the last move and restores the previous board state.
+   *
+   * @returns An object with the details of the undone move, or null if no moves exist.
+   */
   undo(): Move | null {
     const move = this._undoMove()
     if (move) {
@@ -1673,6 +1990,11 @@ export class Chess {
     return move
   }
 
+  /**
+   * Returns the PGN (Portable Game Notation) string for the game.
+   *
+   * @returns The PGN string of the game.
+   */
   pgn({
     newline = '\n',
     maxWidth = 0,
@@ -1830,8 +2152,12 @@ export class Chess {
     return result.join('')
   }
 
-  /*
+  /**
+   * Returns the game header tags.
+   * @param args A list of key-value pairs to add to the header.
+   *
    * @deprecated Use `setHeader` and `getHeaders` instead.
+   * @returns An object containing the header information.
    */
   header(...args: string[]): Record<string, string> {
     for (let i = 0; i < args.length; i += 2) {
@@ -1842,11 +2168,21 @@ export class Chess {
     return this._header
   }
 
+  /**
+   * Set a header key/value pair to be added to the PGN output.
+   * @param key The header key (name) to set.
+   * @param value The value to set for the key.
+   */
   setHeader(key: string, value: string): Record<string, string> {
     this._header[key] = value
     return this._header
   }
 
+  /**
+   * Remove a field from the PGN header.
+   * @param key Which header (name) to remove.
+   * @returns True if the header was removed, else false as the header was not found.
+   */
   removeHeader(key: string): boolean {
     if (key in this._header) {
       delete this._header[key]
@@ -1855,10 +2191,24 @@ export class Chess {
     return false
   }
 
+  /**
+   * Retrieve the PGN headers.
+   */
   getHeaders(): Record<string, string> {
     return this._header
   }
 
+  /**
+   * Load the moves of a game stored in Portable Game Notation.
+   * @param pgn The PGN to load. Should be a string.
+   * @param options Contains optional parameters for loading the PGN.
+   *
+   * The newlineChar is a string representation of a valid RegExp fragment and is used to process the PGN.
+   * It defaults to \r?\n. Special characters should not be pre-escaped, but any literal special characters should be escaped as is normal for a RegExp.
+   * Keep in mind that backslashes in JavaScript strings must themselves be escaped (see sloppyPgn example below). Avoid using a newlineChar that may occur elsewhere in a PGN, such as . or x, as this will result in unexpected behavior.
+   *
+   * The strict flag is a boolean (default: false) that instructs chess.js to only parse moves in Standard Algebraic Notation form. See .move documentation for more information about non-SAN notations.
+   */
   loadPgn(
     pgn: string,
     {
@@ -2257,6 +2607,21 @@ export class Chess {
     return null
   }
 
+  /**
+   * Returns a string containing an ASCII diagram of the current position.
+   * @example chess.ascii()
+   * // -> '   +------------------------+
+   * //      8 | r  n  b  q  k  b  n  r |
+   * //      7 | p  p  p  p  .  p  p  p |
+   * //      6 | .  .  .  .  .  .  .  . |
+   * //      5 | .  .  .  .  p  .  .  . |
+   * //      4 | .  .  .  .  P  P  .  . |
+   * //      3 | .  .  .  .  .  .  .  . |
+   * //      2 | P  P  P  P  .  .  P  P |
+   * //      1 | R  N  B  Q  K  B  N  R |
+   * //        +------------------------+
+   * //          a  b  c  d  e  f  g  h'
+   */
   ascii(): string {
     let s = '   +------------------------+\n'
     for (let i = Ox88.a8; i <= Ox88.h1; i++) {
@@ -2306,11 +2671,20 @@ export class Chess {
     return nodes
   }
 
+  /**
+   * Returns the current side to move
+   * @returns 'w' or 'b' for white or black, respectively, depending on whose turn it is to move.
+   */
   turn(): Color {
     return this._turn
   }
 
-  board(): ({ square: Square; type: PieceSymbol; color: Color } | null)[][] {
+  /**
+   * Returns the current board position as a 2D array of pieces.
+   *
+   * @returns A 2D array representing the board.
+   */
+  board(): (PieceOnSquare | null)[][] {
     const output = []
     let row = []
 
@@ -2322,7 +2696,7 @@ export class Chess {
           square: algebraic(i),
           type: this._board[i].type,
           color: this._board[i].color,
-        })
+        } as PieceOnSquare)
       }
       if ((i + 1) & 0x88) {
         output.push(row)
@@ -2334,6 +2708,10 @@ export class Chess {
     return output
   }
 
+  /**
+   * Returns the color of the square ('light' or 'dark').
+   * @returns The color of the square or null if an invalid square
+   */
   squareColor(square: Square): 'light' | 'dark' | null {
     if (square in Ox88) {
       const sq = Ox88[square]
@@ -2343,10 +2721,44 @@ export class Chess {
     return null
   }
 
+  /**
+   * Returns the history of moves made in the game.
+   *
+   * @param options Optional parameter to specify verbose output.
+   * @returns An array of moves made in the game.
+   */
   history(): string[]
+
+  /**
+   * Returns the history of moves made in the game with verbose output.
+   *
+   * @param options Optional parameter to specify verbose output.
+   * @returns An array of moves made in the game.
+   */
   history({ verbose }: { verbose: true }): Move[]
+
+  /**
+   * Returns the history of moves made in the game with non-verbose output.
+   *
+   * @param options Optional parameter to specify verbose output.
+   * @returns An array of moves made in the game.
+   */
   history({ verbose }: { verbose: false }): string[]
+
+  /**
+   * Returns the history of moves made in the game with optional verbose output.
+   *
+   * @param options Optional parameter to specify verbose output.
+   * @returns An array of moves made in the game.
+   */
   history({ verbose }: { verbose: boolean }): string[] | Move[]
+
+  /**
+   * Returns the history of moves made in the game with optional verbose output.
+   *
+   * @param options Optional parameter to specify verbose output.
+   * @returns An array of moves made in the game.
+   */
   history({ verbose = false }: { verbose?: boolean } = {}) {
     const reversedHistory = []
     const moveHistory = []
@@ -2427,10 +2839,17 @@ export class Chess {
     this._comments = currentComments
   }
 
+  /**
+   * Retrieve the comment for the current position, if it exists.
+   */
   getComment(): string {
     return this._comments[this.fen()]
   }
 
+  /**
+   * Comment on the current position.
+   * @param comment The comment to add to the current position.
+   */
   setComment(comment: string) {
     this._comments[this.fen()] = comment.replace('{', '[').replace('}', ']')
   }
@@ -2442,12 +2861,20 @@ export class Chess {
     return this.removeComment()
   }
 
+  /**
+   * Delete and return the comment for the current position, if it exists.
+   * @returns The comment that was removed.
+   */
   removeComment(): string {
     const comment = this._comments[this.fen()]
     delete this._comments[this.fen()]
     return comment
   }
 
+  /**
+   * Retrieve comments for all positions.
+   * @returns An array of objects containing the FEN and comment.
+   */
   getComments(): { fen: string; comment: string }[] {
     this._pruneComments()
     return Object.keys(this._comments).map((fen: string) => {
@@ -2462,6 +2889,10 @@ export class Chess {
     return this.removeComments()
   }
 
+  /**
+   * Delete and return comments for all positions.
+   * @returns An array of objects containing the FEN and comment.
+   */
   removeComments(): { fen: string; comment: string }[] {
     this._pruneComments()
     return Object.keys(this._comments).map((fen) => {
@@ -2471,6 +2902,14 @@ export class Chess {
     })
   }
 
+  /**
+   * Sets the castling rights for the given color. Returns true if the change was successfully made.
+   * False will be returned when the position doesn't allow the requested change i.e. if the corresponding king or rook is not on it's starting square.
+   *
+   * @param color The color to set the castling rights for.
+   * @param rights The castling rights to set.
+   * @returns True if the change was successfully made, false otherwise.
+   */
   setCastlingRights(
     color: Color,
     rights: Partial<Record<typeof KING | typeof QUEEN, boolean>>,
@@ -2494,6 +2933,12 @@ export class Chess {
     )
   }
 
+  /**
+   * Gets the castling rights for the given color. An object is returned which indicates whether the right is available or not for both kingside and queenside.
+   * Note this does not indicate if such a move is legal or not in the current position as checks, etc. also need to be considered.
+   * @param color The color to get the castling rights for.
+   * @returns An object indicating the castling rights for the given color.
+   */
   getCastlingRights(color: Color): { [KING]: boolean; [QUEEN]: boolean } {
     return {
       [KING]: (this._castling[color] & SIDES[KING]) !== 0,
@@ -2501,7 +2946,275 @@ export class Chess {
     }
   }
 
+  /**
+   * Returns the current move number. Note that this is different from half moves, which is the amount of individual moves played.
+   * @returns The current move number.
+   */
   moveNumber(): number {
     return this._moveNumber
+  }
+
+  /**
+   * Finds all squares occupied by a given piece.
+   * @param piece The piece to search for.
+   * @returns An array of squares where the piece is located.
+   */
+  findPiece(piece: Piece): Square[] {
+    return this.board()
+      .flat()
+      .map((p: PieceOnSquare | null, index: number) => {
+        if (p !== null && p.type === piece.type && p.color === piece.color) {
+          return index
+        }
+        return undefined
+      })
+      .map((pieceIndex: number | undefined) => {
+        if (pieceIndex === undefined || Number.isInteger(pieceIndex))
+          return undefined
+        const row = 'abcdefgh'.charAt(pieceIndex % 8)
+        const column = Math.ceil((64 - pieceIndex) / 8)
+        return (row + column) as Square
+      })
+      .filter((square): square is Square => square !== undefined)
+  }
+
+  /**
+   * Truncates the game's move history to a specified number of moves.
+   * @param moveCount The number of moves to keep.
+   * @param startingFen The starting (beginning of .history()) FEN position, if not the default position.
+   * @returns A new Chess instance with the truncated history.
+   */
+  truncate(moveCount: number, startingFen: string = DEFAULT_POSITION): Chess {
+    if (moveCount < 0) return new Chess(this.fen())
+    else if (moveCount == 0) return new Chess(startingFen)
+
+    const truncatedGame = new Chess(startingFen)
+    const moves = this.history()
+
+    for (let i = 0; i < moveCount; i++) {
+      if (i < moves.length) {
+        truncatedGame.move(moves[i])
+      } else {
+        break
+      }
+    }
+
+    return truncatedGame
+  }
+
+  /**
+   * Gets the attackers of a square (only opposing pieces).
+   * @param square The square to get attackers for.
+   * @returns An array of attackers.
+   */
+  getAttackers(square: Square): PieceOnSquare[] {
+    const attackers: PieceOnSquare[] = []
+
+    const piece = this.get(square)
+    if (!piece) return []
+
+    const oppositeColor = piece.color == 'w' ? 'b' : 'w'
+    const board = new Chess()
+
+    const newFen = changePositionColor(this.fen(), oppositeColor)
+    if (!newFen) return []
+    board.load(newFen, { skipValidation: true })
+
+    const legalMoves = board.moves({ verbose: true })
+    for (const move of legalMoves) {
+      if (move.to == square) {
+        attackers.push({
+          square: move.from,
+          type: move.piece,
+          color: move.color,
+        })
+      }
+    }
+
+    return attackers
+  }
+
+  /**
+   * Get the defenders of a square in a position
+   * @param square The square to get defenders for
+   * @returns The defenders of the square
+   */
+  getDefenders(square: Square): PieceOnSquare[] {
+    const board = new Chess(this.fen())
+    const piece = board.get(square)
+    if (!piece) return []
+    const attackers = this.getAttackers(square)
+    const testAttacker = attackers[0]
+
+    const newFen = changePositionColor(
+      this.fen(),
+      testAttacker ? testAttacker.color : piece.color,
+    )
+    if (!newFen) return []
+    board.load(newFen, { skipValidation: true })
+
+    if (testAttacker) {
+      for (const promotion of ['b', 'n', 'r', 'q', undefined]) {
+        try {
+          board.move({
+            from: testAttacker.square,
+            to: square,
+            promotion,
+          })
+          return board.getAttackers(square)
+        } catch {
+          null
+        }
+      }
+    } else {
+      board.put({ color: piece.color == 'w' ? 'b' : 'w', type: 'q' }, square)
+
+      return board.getAttackers(square)
+    }
+
+    return []
+  }
+
+  /**
+   * Finds all pawn chains on the board
+   * @param side The side to check pawn chains for
+   * @returns An array of pawn chains, each represented as an array of pawn objects
+   */
+  findPawnChains(side: Color): PieceOnSquare[][] {
+    const board = this.board()
+    const visited = new Set()
+    const pawnChains: PieceOnSquare[][] = []
+
+    /**
+     * Helper function to perform DFS and find connected pawns
+     * @param pawn The current pawn
+     * @param chain The current pawn chain
+     */
+    function dfs(pawn: PieceOnSquare, chain: PieceOnSquare[]) {
+      const { col, row } = getRowCol(pawn.square)
+
+      const directions = [
+        { rankOffset: 1, fileOffset: -1 },
+        { rankOffset: 1, fileOffset: 1 },
+        { rankOffset: -1, fileOffset: -1 },
+        { rankOffset: -1, fileOffset: 1 },
+      ]
+
+      for (const { rankOffset, fileOffset } of directions) {
+        const newRow = row + rankOffset
+        const newCol = col + fileOffset
+
+        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
+          const neighbor = board[newRow][newCol]
+
+          if (
+            neighbor &&
+            neighbor.color === side &&
+            neighbor.type === 'p' &&
+            !visited.has(neighbor.square)
+          ) {
+            visited.add(neighbor.square)
+            chain.push(neighbor)
+            dfs(neighbor, chain)
+          }
+        }
+      }
+    }
+
+    for (let rank = 0; rank < 8; rank++) {
+      for (let file = 0; file < 8; file++) {
+        const piece = board[rank][file]
+        if (
+          piece &&
+          piece.type === 'p' &&
+          piece.color === side &&
+          !visited.has(piece.square)
+        ) {
+          const chain = [piece]
+          visited.add(piece.square)
+          dfs(piece, chain)
+
+          if (chain.length > 1) {
+            pawnChains.push(chain)
+          }
+        }
+      }
+    }
+
+    return pawnChains
+  }
+
+  /**
+   * Get all trapped pieces in a position
+   * @param side The side to check for trapped pieces
+   * @returns The trapped pieces
+   */
+  getTrappedPieces(side: Color): PieceOnSquare[] {
+    if (this.isCheck()) return []
+
+    const originalFen = this.fen()
+
+    const newFen = changePositionColor(originalFen, side)
+    if (!newFen) return []
+    this.load(newFen, { skipValidation: true })
+
+    try {
+      const legalMoves = this.moves({ verbose: true })
+      if (legalMoves.length === 0) {
+        return []
+      }
+
+      const pieceMovesMap = new Map()
+
+      // Map each piece to its available moves
+      for (const move of legalMoves) {
+        if (!pieceMovesMap.has(move.from)) {
+          pieceMovesMap.set(move.from, [])
+        }
+        pieceMovesMap.get(move.from).push(move)
+      }
+
+      const board = this.board()
+      const trappedPieces: PieceOnSquare[] = []
+
+      for (let rank = 0; rank < 8; rank++) {
+        for (let file = 0; file < 8; file++) {
+          const square = ('abcdefgh'[file] + (8 - rank)) as Square
+          const piece = board[rank][file]
+
+          if (!piece || piece.color !== side || ['k', 'p'].includes(piece.type))
+            continue
+
+          const moves = pieceMovesMap.get(square) || []
+
+          // Check if all moves lead to attacked squares or no moves available
+          const isTrapped =
+            moves.length === 0 ||
+            moves.every((move: Move) => {
+              const attackers = this.getAttackers(move.to)
+              return attackers?.length > 0
+            })
+
+          if (isTrapped) {
+            trappedPieces.push({ square, type: piece.type, color: side })
+          }
+        }
+      }
+
+      return trappedPieces
+    } finally {
+      // Restore the original board state
+      this.load(originalFen, { skipValidation: true })
+    }
+  }
+
+  /**
+   * Set the side to move (the Side/Color who's turn it is)
+   * @param side The new side to move. If not defined, switch turns.
+   */
+  setTurn(side: Color) {
+    const newFen = changePositionColor(this.fen(), side)
+    if (!newFen) return
+    this.load(newFen, { skipValidation: true })
   }
 }
