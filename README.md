@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/dm/chessjs-plus)](https://www.npmjs.com/package/chessjs-plus)
 
 NOTE: This module is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
-[jhlywa](https://github.com/jhlywa), and was created by
+[jhlywa](https://github.com/jhlywa), created and maintained by
 [bob16077](https://github.com/bob16077). It has largely the same functionality
 as the original module, but this version includes more comments, examples, and
 useful functions.
@@ -292,6 +292,22 @@ property.
 chess.load('r4rk1/1p2bppp/p1p1pn2/4n3/2BP1P2/2N4P/PPP2P2/2KR2R1 w - - 0 15')
 chess.getAttackers('e5')
 // -> [{color: 'w', type: 'p', square: 'd4'}, {color: 'w', type: 'p', square: 'f4'}]
+```
+
+### .getCapturedPieces(color)
+
+Gets captured pieces for either player since the start of the game.
+
+```ts
+const chess = new Chess()
+
+chess.loadPgn('1. d4 e5 2. dxe5 Bb4+ 3. c3 Bxc3+ 4. Nxc3 d5 5. Nxd5 Qxd5')
+
+chess.getCapturedPieces(WHITE)
+// -> {"b": 0, "k": 0, "n": 1, "p": 1, "q": 0,"r": 0}
+
+chess.getCapturedPieces(BLACK)
+// -> {"b": 1, "k": 0, "n": 0, "p": 2, "q": 0,"r": 0}
 ```
 
 ### .getCastlingRights(color)

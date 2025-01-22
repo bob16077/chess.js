@@ -278,6 +278,18 @@ export const SQUARES: Square[] = [
   'a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1'
 ]
 
+//prettier-ignore
+export const POSITION_COORDINATES = [
+    ['a8', 'b8', 'c8', 'd8', 'e8', 'f8', 'g8', 'h8'],
+    ['a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7'],
+    ['a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6'],
+    ['a5', 'b5', 'c5', 'd5', 'e5', 'f5', 'g5', 'h5'],
+    ['a4', 'b4', 'c4', 'd4', 'e4', 'f4', 'g4', 'h4'],
+    ['a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3'],
+    ['a2', 'b2', 'c2', 'd2', 'e2', 'f2', 'g2', 'h2'],
+    ['a1', 'b1', 'c1', 'd1', 'e1', 'f1', 'g1', 'h1']
+  ];
+
 const BITS: Record<string, number> = {
   NORMAL: 1,
   CAPTURE: 2,
@@ -644,28 +656,22 @@ function addMove(
 ) {
   const r = rank(to)
 
-  if (piece === PAWN && (r === RANK_1 || r === RANK_8)) {
+  const promotionNeeded = piece === PAWN && (r === RANK_1 || r === RANK_8)
+  const move = {
+    color,
+    from,
+    to,
+    piece,
+    captured,
+    flags: flags | (promotionNeeded ? BITS.PROMOTION : 0),
+  }
+
+  if (promotionNeeded) {
     for (let i = 0; i < PROMOTIONS.length; i++) {
-      const promotion = PROMOTIONS[i]
-      moves.push({
-        color,
-        from,
-        to,
-        piece,
-        captured,
-        promotion,
-        flags: flags | BITS.PROMOTION,
-      })
+      moves.push({ ...move, promotion: PROMOTIONS[i] })
     }
   } else {
-    moves.push({
-      color,
-      from,
-      to,
-      piece,
-      captured,
-      flags,
-    })
+    moves.push(move)
   }
 }
 
@@ -706,7 +712,7 @@ function trimFen(fen: string): string {
  */
 export function changePositionColor(
   position: string,
-  color: Color,
+  color?: Color,
 ): string | null {
   const matches = position.match(/(?<= )(?:w|b)(?= )/g)
   if (!matches) return null
@@ -1572,14 +1578,14 @@ export class Chess {
     let lastSquare = Ox88.h1
     let singleSquare = false
 
-    // are we generating moves for a single square?
     if (forSquare) {
-      // illegal square, return empty moves
-      if (!(forSquare in Ox88)) {
-        return []
-      } else {
-        firstSquare = lastSquare = Ox88[forSquare]
+      // check if forSquare is a valid square
+      const squareIndex = Ox88[forSquare]
+      if (squareIndex !== undefined) {
+        firstSquare = lastSquare = squareIndex
         singleSquare = true
+      } else {
+        return []
       }
     }
 
@@ -1617,16 +1623,10 @@ export class Chess {
           to = from + PAWN_OFFSETS[us][j]
           if (to & 0x88) continue
 
-          if (this._board[to]?.color === them) {
-            addMove(
-              moves,
-              us,
-              from,
-              to,
-              PAWN,
-              this._board[to].type,
-              BITS.CAPTURE,
-            )
+          const targetSquare = this._board[to]
+
+          if (targetSquare?.color === them) {
+            addMove(moves, us, from, to, PAWN, targetSquare.type, BITS.CAPTURE)
           } else if (to === this._epSquare) {
             addMove(moves, us, from, to, PAWN, PAWN, BITS.EP_CAPTURE)
           }
@@ -2023,9 +2023,8 @@ export class Chess {
 
     const appendComment = (moveString: string) => {
       const comment = this._comments[this.fen()]
-      if (typeof comment !== 'undefined') {
-        const delimiter = moveString.length > 0 ? ' ' : ''
-        moveString = `${moveString}${delimiter}{${comment}}`
+      if (comment !== undefined) {
+        return moveString + (moveString.length > 0 ? ' ' : '') + `{${comment}}`
       }
       return moveString
     }
@@ -2152,6 +2151,10 @@ export class Chess {
     return result.join('')
   }
 
+  private capitalize(s: string): string {
+    return s[0].toUpperCase() + s.slice(1)
+  }
+
   /**
    * Returns the game header tags.
    * @param args A list of key-value pairs to add to the header.
@@ -2162,7 +2165,7 @@ export class Chess {
   header(...args: string[]): Record<string, string> {
     for (let i = 0; i < args.length; i += 2) {
       if (typeof args[i] === 'string' && typeof args[i + 1] === 'string') {
-        this._header[args[i]] = args[i + 1]
+        this._header[this.capitalize(args[i])] = this.capitalize(args[i + 1])
       }
     }
     return this._header
@@ -2174,7 +2177,7 @@ export class Chess {
    * @param value The value to set for the key.
    */
   setHeader(key: string, value: string): Record<string, string> {
-    this._header[key] = value
+    this._header[this.capitalize(key)] = this.capitalize(value)
     return this._header
   }
 
@@ -2185,7 +2188,7 @@ export class Chess {
    */
   removeHeader(key: string): boolean {
     if (key in this._header) {
-      delete this._header[key]
+      delete this._header[this.capitalize(key)]
       return true
     }
     return false
@@ -2689,13 +2692,14 @@ export class Chess {
     let row = []
 
     for (let i = Ox88.a8; i <= Ox88.h1; i++) {
-      if (this._board[i] == null) {
+      const piece = this._board[i]
+      if (piece == null) {
         row.push(null)
       } else {
         row.push({
           square: algebraic(i),
-          type: this._board[i].type,
-          color: this._board[i].color,
+          type: piece.type,
+          color: piece.color,
         } as PieceOnSquare)
       }
       if ((i + 1) & 0x88) {
@@ -2850,24 +2854,26 @@ export class Chess {
    * Comment on the current position.
    * @param comment The comment to add to the current position.
    */
-  setComment(comment: string) {
-    this._comments[this.fen()] = comment.replace('{', '[').replace('}', ']')
+  setComment(comment: string, fen = '') {
+    this._comments[fen ? fen : this.fen()] = comment
+      .replace('{', '[')
+      .replace('}', ']')
   }
 
   /**
    * @deprecated Renamed to `removeComment` for consistency
    */
-  deleteComment(): string {
-    return this.removeComment()
+  deleteComment(fen = ''): string {
+    return this.removeComment(fen)
   }
 
   /**
    * Delete and return the comment for the current position, if it exists.
    * @returns The comment that was removed.
    */
-  removeComment(): string {
-    const comment = this._comments[this.fen()]
-    delete this._comments[this.fen()]
+  removeComment(fen = '') {
+    const comment = this._comments[fen ? fen : this.fen()]
+    delete this._comments[fen ? fen : this.fen()]
     return comment
   }
 
@@ -2877,9 +2883,10 @@ export class Chess {
    */
   getComments(): { fen: string; comment: string }[] {
     this._pruneComments()
-    return Object.keys(this._comments).map((fen: string) => {
-      return { fen: fen, comment: this._comments[fen] }
-    })
+    return Object.entries(this._comments).map(([fen, comment]) => ({
+      fen,
+      comment,
+    }))
   }
 
   /**
@@ -2915,11 +2922,12 @@ export class Chess {
     rights: Partial<Record<typeof KING | typeof QUEEN, boolean>>,
   ): boolean {
     for (const side of [KING, QUEEN] as const) {
+      const sideFlag = SIDES[side]
       if (rights[side] !== undefined) {
         if (rights[side]) {
-          this._castling[color] |= SIDES[side]
+          this._castling[color] |= sideFlag
         } else {
-          this._castling[color] &= ~SIDES[side]
+          this._castling[color] &= ~sideFlag
         }
       }
     }
@@ -2966,16 +2974,15 @@ export class Chess {
         if (p !== null && p.type === piece.type && p.color === piece.color) {
           return index
         }
-        return undefined
+        return null
       })
-      .map((pieceIndex: number | undefined) => {
-        if (pieceIndex === undefined || Number.isInteger(pieceIndex))
-          return undefined
+      .map((pieceIndex: number | null) => {
+        if (pieceIndex === null || !Number.isInteger(pieceIndex)) return null
         const row = 'abcdefgh'.charAt(pieceIndex % 8)
         const column = Math.ceil((64 - pieceIndex) / 8)
         return (row + column) as Square
       })
-      .filter((square): square is Square => square !== undefined)
+      .filter((square): square is Square => square !== null)
   }
 
   /**
@@ -3191,7 +3198,9 @@ export class Chess {
           const isTrapped =
             moves.length === 0 ||
             moves.every((move: Move) => {
+              this.move(move)
               const attackers = this.getAttackers(move.to)
+              this.undo()
               return attackers?.length > 0
             })
 
@@ -3212,9 +3221,26 @@ export class Chess {
    * Set the side to move (the Side/Color who's turn it is)
    * @param side The new side to move. If not defined, switch turns.
    */
-  setTurn(side: Color) {
+  setTurn(side?: Color) {
     const newFen = changePositionColor(this.fen(), side)
     if (!newFen) return
     this.load(newFen, { skipValidation: true })
+  }
+
+  /**
+   * Get all captured pieces for a given color
+   * @param color The color to get captured pieces for
+   * @returns An object containing the count of each piece type captured
+   */
+  getCapturedPieces(color: Color) {
+    const captured = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 }
+
+    for (const move of this.history({ verbose: true })) {
+      if (move.captured && move.color !== color) {
+        captured[move.captured]++
+      }
+    }
+
+    return captured
   }
 }
