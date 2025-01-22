@@ -4,7 +4,7 @@
 [![npm](https://img.shields.io/npm/dm/chessjs-plus)](https://www.npmjs.com/package/chessjs-plus)
 
 NOTE: This module is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
-[jhlywa](https://github.com/jhlywa), and is maintained by
+[jhlywa](https://github.com/jhlywa), and was created by
 [bob16077](https://github.com/bob16077). It has largely the same functionality
 as the original module, but this version includes more comments, examples, and
 useful functions.
@@ -13,7 +13,7 @@ chessjs-plus is a TypeScript chess library used for chess move
 generation/validation, piece placement/movement, and check/checkmate/stalemate
 detection - basically everything but the AI.
 
-chessjs-plus has been extensively tested in node.js and most modern browsers.
+chess.js has been extensively tested in node.js and most modern browsers.
 
 ## Installation
 
@@ -66,8 +66,8 @@ console.log(chess.pgn())
 ## User Interface
 
 By design, chessjs-plus is a headless library and does not include user
-interface elements. Many developers have successfully integrated chessjs-plus
-with the [chessboard.js](http://chessboardjs.com) library. See
+interface elements. Many developers have successfully integrated chess.js with
+the [chessboard.js](http://chessboardjs.com) library. See
 [chessboard.js - Random vs Random](http://chessboardjs.com/examples#5002) for an
 example.
 
@@ -241,6 +241,34 @@ chess.fen()
 // -> 'rnbqkbnr/pppp1ppp/8/4p3/4PP2/8/PPPP2PP/RNBQKBNR b KQkq - 0 2'
 ```
 
+### .findPawnChains(color)
+
+Finds all pawn chains on the board for that color. Pawn Chains are defined as a
+diagonal arrangement of 2 or more _friendly_ pawns, meaning they are able to
+defend each other. Returns a 2D array of Piece objects that include a `square`
+property.
+
+```ts
+chess.load('r2qr2k/ppp2p2/2nbp2p/3p3P/PP1P1P2/2PbP3/5K1R/R1BQ2N1 w - - 0 18')
+game.findPawnChains(BLACK)
+// -> [
+//        [
+//            {color: 'b', type: 'p', square: 'f7'},
+//            {color: 'b', type: 'p', square: 'e6'},
+//            {color: 'b', type: 'p', square: 'd5'}
+//        ]
+//    ]
+```
+
+### .findPiece(piece)
+
+Finds all pieces on the current board that match the provided parameters.
+
+```ts
+chess.findPiece({ type: PAWN, color: BLACK }) // find all black pawns
+// -> ['a7', 'b7', 'c7', 'd7', 'e7', 'f7', 'g7', 'h7']
+```
+
 ### .get(square)
 
 Returns the piece on the square. Returns `undefined` if the square is empty.
@@ -252,6 +280,18 @@ chess.get('a5')
 // -> { type: 'p', color: 'b' },
 chess.get('a6')
 // -> undefined
+```
+
+### .getAttackers(square)
+
+Get the attackers of a square (only opposing pieces, able to move to the
+provided square on the next move). Returns Piece data that includes a `square`
+property.
+
+```ts
+chess.load('r4rk1/1p2bppp/p1p1pn2/4n3/2BP1P2/2N4P/PPP2P2/2KR2R1 w - - 0 15')
+chess.getAttackers('e5')
+// -> [{color: 'w', type: 'p', square: 'd4'}, {color: 'w', type: 'p', square: 'f4'}]
 ```
 
 ### .getCastlingRights(color)
@@ -305,6 +345,18 @@ chess.getComments()
 //    ]
 ```
 
+### .getDefenders(square)
+
+Get the defenders of a square in a position (only friendly pieces, able to move
+to the provided square on the next move). Returns Piece data that includes a
+`square` property.
+
+```ts
+chess.load('rn2kbnr/1pp1pppp/p1q5/8/3P2b1/2N2N1P/PPP2PP1/R1BQKB1R b KQkq - 0 6')
+chess.getDefenders('f3')
+// -> [{color: 'w', type: 'p', square: 'g2'}, {color: 'w', type: 'q', square: 'd1'}]
+```
+
 ### .getHeaders()
 
 Retrieve the PGN headers.
@@ -315,6 +367,19 @@ chess.setHeader('Black', 'Anderssen')
 chess.setHeader('Date', '1858-??-??')
 chess.getHeaders()
 // -> { White: 'Morphy', Black: 'Anderssen', Date: '1858-??-??' }
+```
+
+### .getTrappedPieces(color)
+
+Get all trapped pieces in a position. Trapped is defined as having no square to
+move to on the current board position without being captured by an enemy piece
+of lesser value on the next turn. Returns an array of Piece objects that include
+a `square` property.
+
+```ts
+chess.load('8/pp2k1p1/4pp2/1P6/7p/P3P1P1/5PKb/2B5')
+chess.getTrappedPieces(BLACK)
+// -> [{color: 'b', type: 'b', square: 'h2'}]
 ```
 
 ### .history([ options ])
@@ -922,6 +987,23 @@ chess.setHeader('Black', 'Mikhail Tal')
 // { 'White': 'Robert James Fischer', 'Black': 'Mikhail Tal' }
 ```
 
+### .setTurn(color?)
+
+Set the side to move while leaving the current board position intact. If no
+color is provided, the side to move will switch (if it's Black's turn to move,
+this will change it to White's).
+
+```ts
+chess.turn()
+// -> 'b'
+
+chess.setTurn('w')
+// -> true
+
+chess.turn()
+// -> 'w'
+```
+
 ### .squareColor(square)
 
 Returns the color of the square ('light' or 'dark').
@@ -934,6 +1016,20 @@ chess.squareColor('a7')
 // -> 'dark'
 chess.squareColor('bogus square')
 // -> null
+```
+
+### .truncate(moves, startingFen)
+
+Truncate the game's move history to a specified number of moves. If the game's
+starting FEN (before the first move in .history()) is not the default, it should
+be provided as a second parameter.
+
+```ts
+chess.loadPgn('1. e4 e5 2. Nf3 Nf6 3. Nc3')
+const game = chess.truncate(3, DEFAULT_POSITION) // truncate this game to include only the first three moves
+
+game.history()
+// -> ['e4', 'e5', 'Nf3']
 ```
 
 ### .turn()

@@ -725,7 +725,7 @@ export function changePositionColor(
  * @returns The row and column of the square
  */
 export function getRowCol(square: Square): { row: number; col: number } {
-  const file = 'abcdefg'.indexOf(square[0])
+  const file = 'abcdefgh'.indexOf(square[0])
   const rank = 7 - (Number(square[1]) - 1)
 
   // Ensure the file and rank are valid (0 to 7)
