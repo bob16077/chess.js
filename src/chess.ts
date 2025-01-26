@@ -59,6 +59,18 @@ export const DEFAULT_POSITION =
   'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'
 
 /**
+ * The approximate piece values for each type, in (centipawns / 100).
+ */
+export const PIECE_VALUES = {
+  p: 1,
+  n: 3,
+  b: 3,
+  r: 5,
+  q: 9,
+  k: Infinity,
+}
+
+/**
  * Type representing a chess piece, with color (side) and type.
  */
 export type Piece = {
@@ -3161,9 +3173,7 @@ export class Chess {
 
     const originalFen = this.fen()
 
-    const newFen = changePositionColor(originalFen, side)
-    if (!newFen) return []
-    this.load(newFen, { skipValidation: true })
+    this.setTurn(side)
 
     try {
       const legalMoves = this.moves({ verbose: true })
@@ -3189,19 +3199,28 @@ export class Chess {
           const square = ('abcdefgh'[file] + (8 - rank)) as Square
           const piece = board[rank][file]
 
-          if (!piece || piece.color !== side || ['k', 'p'].includes(piece.type))
+          if (!piece || piece.color !== side || 'kp'.includes(piece.type))
             continue
 
           const moves = pieceMovesMap.get(square) || []
 
-          // Check if all moves lead to attacked squares or no moves available
+          /*
+           * Check if all moves lead to attacked squares (or defended and trapped piece
+           * is worth more than the cheapest attacker), or no moves available
+           */
           const isTrapped =
             moves.length === 0 ||
             moves.every((move: Move) => {
               this.move(move)
               const attackers = this.getAttackers(move.to)
+              const defenders = this.getDefenders(move.to)
               this.undo()
-              return attackers?.length > 0
+              return (
+                attackers?.length > 0 &&
+                (defenders?.length === 0 ||
+                  Math.min(...attackers.map((a) => PIECE_VALUES[a.type])) <=
+                    PIECE_VALUES[move.piece])
+              )
             })
 
           if (isTrapped) {

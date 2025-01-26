@@ -9,6 +9,12 @@ NOTE: This module is a fork of [chess.js](https://github.com/jhlywa/chess.js) by
 as the original module, but this version includes more comments, examples, and
 useful functions.
 
+Currently, new functionality to the `Chess` class includes: `.findPiece()`,
+`.truncate()`, `.getAttackers()`, `.getDefenders()`, `.findPawnChains()`,
+`.setTurn()`, `.getCapturedPieces()`. These come along with small performance
+improvements and expanded `Move` and `Piece` data compared to the current
+version of chess.js.
+
 chessjs-plus is a TypeScript chess library used for chess move
 generation/validation, piece placement/movement, and check/checkmate/stalemate
 detection - basically everything but the AI.
