@@ -1,6 +1,6 @@
 {
   "name": "chessjs-plus",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "author": "bob16077",
   "main": "dist/cjs/chess.js",
   "module": "dist/esm/chess.js",
