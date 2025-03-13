@@ -3199,7 +3199,11 @@ export class Chess {
           const square = ('abcdefgh'[file] + (8 - rank)) as Square
           const piece = board[rank][file]
 
-          if (!piece || piece.color !== side || 'kp'.includes(piece.type))
+          if (
+            !piece ||
+            piece.color !== side ||
+            [KING, PAWN].includes(piece.type)
+          )
             continue
 
           const moves = pieceMovesMap.get(square) || []
@@ -3218,7 +3222,7 @@ export class Chess {
               return (
                 attackers?.length > 0 &&
                 (defenders?.length === 0 ||
-                  Math.min(...attackers.map((a) => PIECE_VALUES[a.type])) <=
+                  Math.min(...attackers.map((a) => PIECE_VALUES[a.type])) <
                     PIECE_VALUES[move.piece])
               )
             })
