@@ -113,12 +113,15 @@ export const DEFAULT_POSITION = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w K
 export const SQUARES = ['a8', 'b8', 'c8', ..., 'f1', 'g1', 'h1']
 ```
 
-### Constructor: Chess([ fen ])
+### Constructor: Chess([ fen ], { skipValidation = false } = {})
 
-The Chess() constructor takes an optional parameter which specifies the board
-configuration in
-[Forsyth-Edwards Notation (FEN)](http://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation).
-Throws an exception if an invalid FEN string is provided.
+The Chess() constructor creates a new chess object that default to the initial
+board position. It accepts two optional parameters : a string which specifies
+the board configuration in
+[Forsyth-Edwards Notation (FEN)](http://en.wikipedia.org/wiki/Forsyth%E2%80%93Edwards_Notation),
+and an object with a `skipValidation` boolean. By default the constructor will
+throw an exception if an invalid FEN string is provided. This behavior can be
+skipped by setting the `skipValidation` boolean.
 
 ```ts
 import { Chess } from 'chessjs-plus'
@@ -129,6 +132,12 @@ let chess = new Chess()
 // pass in a FEN string to load a particular position
 let chess = new Chess(
   'r1k4r/p2nb1p1/2b4p/1p1n1p2/2PP4/3Q1NB1/1P3PPP/R5K1 b - - 0 19',
+)
+
+// the white king is missing from the FEN string below
+let chess = new Chess(
+  'r1k4r/p2nb1p1/2b4p/1p1n1p2/2PP4/3Q1NB1/1P3PPP/R52 b - - 0 19',
+  { skipValidation = true },
 )
 ```
 
@@ -160,9 +169,13 @@ chess.ascii()
 
 ### .attackers(square, [ color ])
 
-Returns a list of squares that have pieces belonging to the side to move that
-can attack the given square. This function takes an optional parameter which can
-change which color the pieces should belong to.
+Returns a list of PieceOnSquares that have pieces belonging to the side to move
+that can attack the given square. This function takes an optional parameter
+which can change which color the pieces should belong to.
+
+Note: In the below examples, the returned values are represented as only
+squares. The actual return values also each include a `color` and `type`
+property.
 
 ```ts
 const chess = new Chess()
@@ -269,6 +282,8 @@ game.findPawnChains(BLACK)
 ### .findPiece(piece)
 
 Finds all pieces on the current board that match the provided parameters.
+Returns an array of PieceOnSquares (in the below example, represented by just
+the squares the found pieces are on).
 
 ```ts
 chess.findPiece({ type: PAWN, color: BLACK }) // find all black pawns

@@ -1,3 +1,4 @@
+/* eslint-disable multiline-comment-style */
 /**
  * @license
  * Copyright (c) 2025, bob16077
@@ -474,7 +475,7 @@ function algebraic(square: number): Square {
     '87654321'.substring(r, r + 1)) as Square
 }
 
-function swapColor(color: Color): Color {
+export function swapColor(color: Color): Color {
   return color === WHITE ? BLACK : WHITE
 }
 
@@ -769,8 +770,8 @@ export class Chess {
   // tracks number of times a position has been seen for repetition checking
   private _positionCount: Record<string, number> = {}
 
-  constructor(fen = DEFAULT_POSITION) {
-    this.load(fen)
+  constructor(fen = DEFAULT_POSITION, { skipValidation = false } = {}) {
+    this.load(fen, { skipValidation })
   }
 
   /**
@@ -1157,9 +1158,13 @@ export class Chess {
 
   private _attacked(color: Color, square: number): boolean
   private _attacked(color: Color, square: number, verbose: false): boolean
-  private _attacked(color: Color, square: number, verbose: true): Square[]
+  private _attacked(
+    color: Color,
+    square: number,
+    verbose: true,
+  ): PieceOnSquare[]
   private _attacked(color: Color, square: number, verbose?: boolean) {
-    const attackers: Square[] = []
+    const attackers: PieceOnSquare[] = []
     for (let i = Ox88.a8; i <= Ox88.h1; i++) {
       // did we run off the end of the board
       if (i & 0x88) {
@@ -1191,7 +1196,7 @@ export class Chess {
             if (!verbose) {
               return true
             } else {
-              attackers.push(algebraic(i))
+              attackers.push({ ...piece, square: algebraic(i) })
             }
           }
           continue
@@ -1202,7 +1207,7 @@ export class Chess {
           if (!verbose) {
             return true
           } else {
-            attackers.push(algebraic(i))
+            attackers.push({ ...piece, square: algebraic(i) })
             continue
           }
         }
@@ -1223,7 +1228,7 @@ export class Chess {
           if (!verbose) {
             return true
           } else {
-            attackers.push(algebraic(i))
+            attackers.push({ ...piece, square: algebraic(i) })
             continue
           }
         }
@@ -1241,7 +1246,7 @@ export class Chess {
    * Returns a list of squares that have pieces belonging to the side to move that can attack the given square.
    * This function takes an optional parameter which can change which color the pieces should belong to.
    */
-  attackers(square: Square, attackedBy?: Color): Square[] {
+  attackers(square: Square, attackedBy?: Color): PieceOnSquare[] {
     if (!attackedBy) {
       return this._attacked(this._turn, Ox88[square], true)
     } else {
@@ -2979,22 +2984,30 @@ export class Chess {
    * @param piece The piece to search for.
    * @returns An array of squares where the piece is located.
    */
-  findPiece(piece: Piece): Square[] {
-    return this.board()
-      .flat()
-      .map((p: PieceOnSquare | null, index: number) => {
-        if (p !== null && p.type === piece.type && p.color === piece.color) {
-          return index
-        }
-        return null
-      })
-      .map((pieceIndex: number | null) => {
-        if (pieceIndex === null || !Number.isInteger(pieceIndex)) return null
-        const row = 'abcdefgh'.charAt(pieceIndex % 8)
-        const column = Math.ceil((64 - pieceIndex) / 8)
-        return (row + column) as Square
-      })
-      .filter((square): square is Square => square !== null)
+  findPiece(piece: Piece): PieceOnSquare[] {
+    const squares: PieceOnSquare[] = []
+    for (let i = Ox88.a8; i <= Ox88.h1; i++) {
+      // did we run off the end of the board
+      if (i & 0x88) {
+        i += 7
+        continue
+      }
+
+      // if empty square or wrong color
+      if (!this._board[i] || this._board[i]?.color !== piece.color) {
+        continue
+      }
+
+      // check if square contains the requested piece
+      if (
+        this._board[i].color === piece.color &&
+        this._board[i].type === piece.type
+      ) {
+        squares.push({ ...piece, square: algebraic(i) })
+      }
+    }
+
+    return squares
   }
 
   /**
@@ -3027,30 +3040,10 @@ export class Chess {
    * @returns An array of attackers.
    */
   getAttackers(square: Square): PieceOnSquare[] {
-    const attackers: PieceOnSquare[] = []
-
     const piece = this.get(square)
     if (!piece) return []
 
-    const oppositeColor = piece.color == 'w' ? 'b' : 'w'
-    const board = new Chess()
-
-    const newFen = changePositionColor(this.fen(), oppositeColor)
-    if (!newFen) return []
-    board.load(newFen, { skipValidation: true })
-
-    const legalMoves = board.moves({ verbose: true })
-    for (const move of legalMoves) {
-      if (move.to == square) {
-        attackers.push({
-          square: move.from,
-          type: move.piece,
-          color: move.color,
-        })
-      }
-    }
-
-    return attackers
+    return this.attackers(square, swapColor(piece.color))
   }
 
   /**
@@ -3059,39 +3052,10 @@ export class Chess {
    * @returns The defenders of the square
    */
   getDefenders(square: Square): PieceOnSquare[] {
-    const board = new Chess(this.fen())
-    const piece = board.get(square)
+    const piece = this.get(square)
     if (!piece) return []
-    const attackers = this.getAttackers(square)
-    const testAttacker = attackers[0]
 
-    const newFen = changePositionColor(
-      this.fen(),
-      testAttacker ? testAttacker.color : piece.color,
-    )
-    if (!newFen) return []
-    board.load(newFen, { skipValidation: true })
-
-    if (testAttacker) {
-      for (const promotion of ['b', 'n', 'r', 'q', undefined]) {
-        try {
-          board.move({
-            from: testAttacker.square,
-            to: square,
-            promotion,
-          })
-          return board.getAttackers(square)
-        } catch {
-          null
-        }
-      }
-    } else {
-      board.put({ color: piece.color == 'w' ? 'b' : 'w', type: 'q' }, square)
-
-      return board.getAttackers(square)
-    }
-
-    return []
+    return this.attackers(square, piece.color)
   }
 
   /**
