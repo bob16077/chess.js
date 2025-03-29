@@ -1,7 +1,7 @@
 /* eslint-disable multiline-comment-style */
 /**
  * @license
- * Copyright (c) 2025, bob16077
+ * Copyright (c) 2025, bob16077 & Jeff Hlywa
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1203,7 +1203,7 @@ export class Chess {
         }
 
         // if the piece is a knight or a king
-        if (piece.type === 'n' || piece.type === 'k') {
+        if (piece.type === KNIGHT || piece.type === KING) {
           if (!verbose) {
             return true
           } else {
@@ -2987,7 +2987,6 @@ export class Chess {
   findPiece(piece: Piece): PieceOnSquare[] {
     const squares: PieceOnSquare[] = []
     for (let i = Ox88.a8; i <= Ox88.h1; i++) {
-      // did we run off the end of the board
       if (i & 0x88) {
         i += 7
         continue
@@ -3017,18 +3016,13 @@ export class Chess {
    * @returns A new Chess instance with the truncated history.
    */
   truncate(moveCount: number, startingFen: string = DEFAULT_POSITION): Chess {
-    if (moveCount < 0) return new Chess(this.fen())
-    else if (moveCount == 0) return new Chess(startingFen)
+    if (moveCount <= 0) return new Chess(startingFen)
 
     const truncatedGame = new Chess(startingFen)
     const moves = this.history()
 
-    for (let i = 0; i < moveCount; i++) {
-      if (i < moves.length) {
-        truncatedGame.move(moves[i])
-      } else {
-        break
-      }
+    for (let i = 0; i < moveCount && i < moves.length; i++) {
+      truncatedGame.move(moves[i])
     }
 
     return truncatedGame
@@ -3040,7 +3034,7 @@ export class Chess {
    * @returns An array of attackers.
    */
   getAttackers(square: Square): PieceOnSquare[] {
-    const piece = this.get(square)
+    const piece = this._board[Ox88[square]]
     if (!piece) return []
 
     return this.attackers(square, swapColor(piece.color))
@@ -3052,7 +3046,7 @@ export class Chess {
    * @returns The defenders of the square
    */
   getDefenders(square: Square): PieceOnSquare[] {
-    const piece = this.get(square)
+    const piece = this._board[Ox88[square]]
     if (!piece) return []
 
     return this.attackers(square, piece.color)
@@ -3064,63 +3058,61 @@ export class Chess {
    * @returns An array of pawn chains, each represented as an array of pawn objects
    */
   findPawnChains(side: Color): PieceOnSquare[][] {
-    const board = this.board()
-    const visited = new Set()
+    const visited = new Set<number>()
     const pawnChains: PieceOnSquare[][] = []
 
     /**
      * Helper function to perform DFS and find connected pawns
-     * @param pawn The current pawn
+     * @param square The current pawn's square in 0x88 format
      * @param chain The current pawn chain
      */
-    function dfs(pawn: PieceOnSquare, chain: PieceOnSquare[]) {
-      const { col, row } = getRowCol(pawn.square)
+    const dfs = (square: number, chain: number[]) => {
+      const directions = [17, -17, 15, -15]
 
-      const directions = [
-        { rankOffset: 1, fileOffset: -1 },
-        { rankOffset: 1, fileOffset: 1 },
-        { rankOffset: -1, fileOffset: -1 },
-        { rankOffset: -1, fileOffset: 1 },
-      ]
+      for (const direction of directions) {
+        const neighborSquare = square + direction
 
-      for (const { rankOffset, fileOffset } of directions) {
-        const newRow = row + rankOffset
-        const newCol = col + fileOffset
-
-        if (newRow >= 0 && newRow < 8 && newCol >= 0 && newCol < 8) {
-          const neighbor = board[newRow][newCol]
-
-          if (
-            neighbor &&
-            neighbor.color === side &&
-            neighbor.type === 'p' &&
-            !visited.has(neighbor.square)
-          ) {
-            visited.add(neighbor.square)
-            chain.push(neighbor)
-            dfs(neighbor, chain)
-          }
+        if (
+          !(neighborSquare & 0x88) &&
+          this._board[neighborSquare]?.type === PAWN &&
+          this._board[neighborSquare]?.color === side &&
+          !visited.has(neighborSquare)
+        ) {
+          visited.add(neighborSquare)
+          chain.push(neighborSquare)
+          dfs(neighborSquare, chain)
         }
       }
     }
 
-    for (let rank = 0; rank < 8; rank++) {
-      for (let file = 0; file < 8; file++) {
-        const piece = board[rank][file]
-        if (
-          piece &&
-          piece.type === 'p' &&
-          piece.color === side &&
-          !visited.has(piece.square)
-        ) {
-          const chain = [piece]
-          visited.add(piece.square)
-          dfs(piece, chain)
+    for (let i = Ox88.a8; i <= Ox88.h1; i++) {
+      if (i & 0x88) {
+        i += 7
+        continue
+      }
 
-          if (chain.length > 1) {
-            pawnChains.push(chain)
-          }
-        }
+      const piece = this._board[i]
+      if (
+        !piece ||
+        piece.type !== PAWN ||
+        piece.color !== side ||
+        visited.has(i)
+      ) {
+        continue
+      }
+
+      const chain: number[] = [i]
+      visited.add(i)
+      dfs(i, chain)
+
+      if (chain.length > 1) {
+        pawnChains.push(
+          chain.map((square) => ({
+            square: algebraic(square),
+            type: PAWN,
+            color: side,
+          })),
+        )
       }
     }
 
@@ -3135,73 +3127,65 @@ export class Chess {
   getTrappedPieces(side: Color): PieceOnSquare[] {
     if (this.isCheck()) return []
 
-    const originalFen = this.fen()
-
     this.setTurn(side)
 
-    try {
-      const legalMoves = this.moves({ verbose: true })
-      if (legalMoves.length === 0) {
-        return []
+    const trappedPieces: PieceOnSquare[] = []
+
+    for (let i = Ox88.a8; i <= Ox88.h1; i++) {
+      if (i & 0x88) {
+        i += 7
+        continue
       }
 
-      const pieceMovesMap = new Map()
+      const piece = this._board[i]
 
-      // Map each piece to its available moves
-      for (const move of legalMoves) {
-        if (!pieceMovesMap.has(move.from)) {
-          pieceMovesMap.set(move.from, [])
-        }
-        pieceMovesMap.get(move.from).push(move)
+      if (
+        !piece ||
+        piece.color !== side ||
+        piece.type == KING ||
+        piece.type == PAWN
+      )
+        continue
+
+      const moves = this._moves({ square: algebraic(i), legal: true })
+      if (moves.length === 0) {
+        // no legal moves -> piece is trapped
+        trappedPieces.push({
+          square: algebraic(i),
+          type: piece.type,
+          color: side,
+        })
+        continue
       }
 
-      const board = this.board()
-      const trappedPieces: PieceOnSquare[] = []
+      /*
+       * Check if all moves lead to attacked squares (or defended and trapped piece
+       * is worth more than the cheapest attacker), or no moves available
+       */
+      const isTrapped = moves.every((move) => {
+        this._makeMove(move)
+        const attackers = this._attacked(swapColor(side), move.to, true)
+        const defenders = this._attacked(side, move.to, true)
+        this._undoMove()
 
-      for (let rank = 0; rank < 8; rank++) {
-        for (let file = 0; file < 8; file++) {
-          const square = ('abcdefgh'[file] + (8 - rank)) as Square
-          const piece = board[rank][file]
+        return (
+          attackers.length > 0 &&
+          (defenders.length === 0 ||
+            Math.min(...attackers.map((a) => PIECE_VALUES[a.type])) <
+              PIECE_VALUES[move.piece])
+        )
+      })
 
-          if (
-            !piece ||
-            piece.color !== side ||
-            [KING, PAWN].includes(piece.type)
-          )
-            continue
-
-          const moves = pieceMovesMap.get(square) || []
-
-          /*
-           * Check if all moves lead to attacked squares (or defended and trapped piece
-           * is worth more than the cheapest attacker), or no moves available
-           */
-          const isTrapped =
-            moves.length === 0 ||
-            moves.every((move: Move) => {
-              this.move(move)
-              const attackers = this.getAttackers(move.to)
-              const defenders = this.getDefenders(move.to)
-              this.undo()
-              return (
-                attackers?.length > 0 &&
-                (defenders?.length === 0 ||
-                  Math.min(...attackers.map((a) => PIECE_VALUES[a.type])) <
-                    PIECE_VALUES[move.piece])
-              )
-            })
-
-          if (isTrapped) {
-            trappedPieces.push({ square, type: piece.type, color: side })
-          }
-        }
+      if (isTrapped) {
+        trappedPieces.push({
+          square: algebraic(i),
+          type: piece.type,
+          color: side,
+        })
       }
-
-      return trappedPieces
-    } finally {
-      // Restore the original board state
-      this.load(originalFen, { skipValidation: true })
     }
+
+    return trappedPieces
   }
 
   /**
@@ -3209,9 +3193,7 @@ export class Chess {
    * @param side The new side to move. If not defined, switch turns.
    */
   setTurn(side?: Color) {
-    const newFen = changePositionColor(this.fen(), side)
-    if (!newFen) return
-    this.load(newFen, { skipValidation: true })
+    this._turn = side ?? (this._turn === WHITE ? BLACK : WHITE)
   }
 
   /**
@@ -3219,10 +3201,10 @@ export class Chess {
    * @param color The color to get captured pieces for
    * @returns An object containing the count of each piece type captured
    */
-  getCapturedPieces(color: Color) {
+  getCapturedPieces(color: Color): Record<PieceSymbol, number> {
     const captured = { p: 0, n: 0, b: 0, r: 0, q: 0, k: 0 }
 
-    for (const move of this.history({ verbose: true })) {
+    for (const { move } of this._history) {
       if (move.captured && move.color !== color) {
         captured[move.captured]++
       }
