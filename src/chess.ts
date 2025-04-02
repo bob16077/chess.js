@@ -2240,6 +2240,14 @@ export class Chess {
       return str.replace(/\\/g, '\\')
     }
 
+    if (!newlineChar || newlineChar === '\n' || newlineChar === '\r?\n') {
+      // Normalize newline characters to '\n'
+      pgn = pgn.replace(/\r\n|\r/g, '\n')
+
+      // Ensure there is exactly one blank line between headers and moves
+      pgn = pgn.replace(/]\s*\n(?!\n)/g, ']\n\n')
+    }
+
     function parsePgnHeader(header: string): { [key: string]: string } {
       const headerObj: Record<string, string> = {}
       const headers = header.split(new RegExp(mask(newlineChar)))

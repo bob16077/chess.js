@@ -30,6 +30,35 @@ test('loadPgn - works', () => {
   expect(chess.fen()).toEqual(fen)
 })
 
+test('loadPgn - works - no space', () => {
+  const chess = new Chess()
+  const fen = '4q2k/2r1r3/4PR1p/p1p5/P1Bp1Q1P/1P6/6P1/6K1 b - - 4 41'
+  const pgn = `
+  [Event "Reykjavik WCh"]
+  [Site "Reykjavik WCh"]
+  [Date "1972.01.07"]
+  [EventDate "?"]
+  [Round "6"]
+  [Result "1-0"]
+  [White "Robert James Fischer"]
+  [Black "Boris Spassky"]
+  [ECO "D59"]
+  [WhiteElo "?"]
+  [BlackElo "?"]
+  [PlyCount "81"]
+  1. c4 e6 2. Nf3 d5 3. d4 Nf6 4. Nc3 Be7 5. Bg5 O-O 6. e3 h6
+  7. Bh4 b6 8. cxd5 Nxd5 9. Bxe7 Qxe7 10. Nxd5 exd5 11. Rc1 Be6
+  12. Qa4 c5 13. Qa3 Rc8 14. Bb5 a6 15. dxc5 bxc5 16. O-O Ra7
+  17. Be2 Nd7 18. Nd4 Qf8 19. Nxe6 fxe6 20. e4 d4 21. f4 Qe7
+  22. e5 Rb8 23. Bc4 Kh8 24. Qh3 Nf8 25. b3 a5 26. f5 exf5
+  27. Rxf5 Nh7 28. Rcf1 Qd8 29. Qg3 Re7 30. h4 Rbb7 31. e6 Rbc7
+  32. Qe5 Qe8 33. a4 Qd8 34. R1f2 Qe8 35. R2f3 Qd8 36. Bd3 Qe8
+  37. Qe4 Nf6 38. Rxf6 gxf6 39. Rxf6 Kg8 40. Bc4 Kh8 41. Qf4 1-0`
+
+  chess.loadPgn(pgn)
+  expect(chess.fen()).toEqual(fen)
+})
+
 test('loadPgn - works - no header', () => {
   const chess = new Chess()
   const fen = 'r1b1r3/pp1k3p/n2p4/8/Q7/b2P4/P1PK2P1/1R3B2 b - - 1 23'
@@ -154,7 +183,8 @@ Bogo-Indian. } 3...d5 4.Bg2 c6 5.Nf3 Be7 6.O-O Nbd7
 })
 
 test('loadPgn - works - regression test (pinned piece)', () => {
-  /* regression test - broken PGN parser ended up moving the pinned knight at
+  /*
+   * regression test - broken PGN parser ended up moving the pinned knight at
    * c3 and ended up in this position:
    * rnbqk2r/pp1p1ppp/4pn2/1N6/1bPN4/8/PP2PPPP/R1BQKB1R b KQkq - 2 6
    */
