@@ -99,3 +99,11 @@ test('Chess constructor - skipValidation = true', () => {
     )
   }).toThrowError()
 })
+
+test('Chess load - a8 is number?', () => {
+  expect(() => {
+    const chess = new Chess()
+    chess.load('8/8/3k4/5q2/8/4K3/4p3/8 b - - 9 63')
+    expect(chess.fen()).toEqual('8/8/3k4/5q2/8/4K3/4p3/8 b - - 9 63')
+  })
+})

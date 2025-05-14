@@ -9,3 +9,6 @@ package-lock.json
 test.js
 chess.js.code-workspace
 bundle.js
+
+src/pgn.js
+src/pgn.d.ts
